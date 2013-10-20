@@ -22,6 +22,7 @@ import hudson.util.IOException2;
 import hudson.util.IOUtils;
 import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
+
 import org.eclipse.jgit.lib.Config;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.transport.RefSpec;
@@ -35,6 +36,7 @@ import org.kohsuke.stapler.StaplerResponse;
 import org.kohsuke.stapler.export.Exported;
 
 import javax.servlet.ServletException;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -657,7 +659,7 @@ public class GitSCM extends SCM implements Serializable {
                                .getClient();
 
             String gitRepo = getParamExpandedRepos(lastBuild).get(0).getURIs().get(0).toString();
-            ObjectId head = git.getHeadRev(gitRepo, getBranches().get(0).getName());
+            ObjectId head = git.getHeadRev(gitRepo, getBranches(lastBuild.getEnvironment()).get(0).getName());
 
             if (head != null && buildData.lastBuild.getRevision().getSha1().name().equals(head.name())) {
                 return PollingResult.NO_CHANGES;
@@ -1680,6 +1682,15 @@ public class GitSCM extends SCM implements Serializable {
     @Exported
     public List<BranchSpec> getBranches() {
         return branches;
+    }
+
+    public List<BranchSpec> getBranches(EnvVars environment) {
+        List<BranchSpec> branchSpecs = new ArrayList<BranchSpec>(branches.size());
+        for (BranchSpec branchSpec : branches) {
+            String expandedName = environment.expand(branchSpec.getName());
+            branchSpecs.add(new BranchSpec(expandedName));
+        }
+        return branchSpecs;
     }
 
     @Exported

@@ -3,6 +3,7 @@ package hudson.plugins.git.util;
 import hudson.Extension;
 import hudson.model.TaskListener;
 import hudson.plugins.git.*;
+
 import org.eclipse.jgit.lib.Repository;
 import org.jenkinsci.plugins.gitclient.GitClient;
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -37,11 +38,11 @@ public class InverseBuildChooser extends BuildChooser {
     @Override
     public Collection<Revision> getCandidateRevisions(boolean isPollCall,
             String singleBranch, GitClient git, TaskListener listener,
-            BuildData buildData, BuildChooserContext context) throws GitException, IOException {
+            BuildData buildData, BuildChooserContext context) throws GitException, IOException, InterruptedException {
 
         GitUtils utils = new GitUtils(listener, git);
         List<Revision> branchRevs = new ArrayList<Revision>(utils.getAllBranchRevisions());
-        List<BranchSpec> specifiedBranches = gitSCM.getBranches();
+        List<BranchSpec> specifiedBranches = gitSCM.getBranches(context.getBuild().getEnvironment());
 
         // Iterate over all the revisions pointed to by branches in the repository
         for (Iterator<Revision> i = branchRevs.iterator(); i.hasNext(); ) {

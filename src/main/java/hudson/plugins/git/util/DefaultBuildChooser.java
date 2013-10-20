@@ -2,7 +2,9 @@ package hudson.plugins.git.util;
 
 import hudson.Extension;
 import hudson.model.TaskListener;
+import hudson.model.AbstractBuild;
 import hudson.plugins.git.*;
+
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.transport.RemoteConfig;
@@ -32,18 +34,19 @@ public class DefaultBuildChooser extends BuildChooser {
      *
      * @throws IOException
      * @throws GitException
+     * @throws InterruptedException 
      */
     @Override
     public Collection<Revision> getCandidateRevisions(boolean isPollCall, String singleBranch,
                                                       GitClient git, TaskListener listener, BuildData data, BuildChooserContext context)
-        throws GitException, IOException {
+        throws GitException, IOException, InterruptedException {
 
         verbose(listener,"getCandidateRevisions({0},{1},,,{2}) considering branches to build",isPollCall,singleBranch,data);
 
         // if the branch name contains more wildcards then the simple usecase
         // does not apply and we need to skip to the advanced usecase
         if (singleBranch == null || singleBranch.contains("*"))
-            return getAdvancedCandidateRevisions(isPollCall,listener,new GitUtils(listener,git),data);
+            return getAdvancedCandidateRevisions(isPollCall,listener,new GitUtils(listener,git),data, context);
 
         // check if we're trying to build a specific commit
         // this only makes sense for a build, there is no
@@ -159,10 +162,12 @@ public class DefaultBuildChooser extends BuildChooser {
      *  NB: Alternate BuildChooser implementations are possible - this
      *  may be beneficial if "only 1" branch is to be built, as much of
      *  this work is irrelevant in that usecase.
+     * @param context 
      * @throws IOException
      * @throws GitException
+     * @throws InterruptedException 
      */
-    private List<Revision> getAdvancedCandidateRevisions(boolean isPollCall, TaskListener listener, GitUtils utils, BuildData data) throws GitException, IOException {
+    private List<Revision> getAdvancedCandidateRevisions(boolean isPollCall, TaskListener listener, GitUtils utils, BuildData data, BuildChooserContext context) throws GitException, IOException, InterruptedException {
         // 1. Get all the (branch) revisions that exist
         List<Revision> revs = new ArrayList<Revision>(utils.getAllBranchRevisions());
         verbose(listener, "Starting with all the branches: {0}", revs);
@@ -176,7 +181,14 @@ public class DefaultBuildChooser extends BuildChooser {
             for (Iterator<Branch> j = r.getBranches().iterator(); j.hasNext();) {
                 Branch b = j.next();
                 boolean keep = false;
-                for (BranchSpec bspec : gitSCM.getBranches()) {
+                List<BranchSpec> branches = null;
+                AbstractBuild<?,?> build = context.getBuild();
+                if (build == null) {
+                    branches = gitSCM.getBranches();
+                } else {
+                    branches = gitSCM.getBranches(build.getEnvironment());
+                }
+                for (BranchSpec bspec : branches) {
                     if (bspec.matches(b.getName())) {
                         keep = true;
                         break;
